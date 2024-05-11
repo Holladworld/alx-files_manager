@@ -30,7 +30,7 @@ class RedisClient {
   }
 
   async del(key) {
-    await this.client.asyncDel(key);
+    await this.asyncDel(key);
   }
 }
 
