@@ -131,7 +131,7 @@ const FilesController = {
       searchQuery = { userId: redisUserId };
     } else {
       searchQuery = {
-        parentId: ObjectID(parentId),
+        parentId,
         userId: redisUserId,
       };
     }
