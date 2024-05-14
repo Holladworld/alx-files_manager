@@ -108,22 +108,21 @@ const FilesController = {
   async getIndex(req, res) {
     const token = req.header('X-Token');
     const key = `auth_${token}`;
-    const userId = await redisClient.get(key);
-    if (!userId) {
+    const redisUserId = await redisClient.get(key);
+    if (!redisUserId) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
     const { parentId, page = 0 } = req.query;
-    const filesPerPage = 20;
-    const skip = parseInt(page, 10) * filesPerPage;
-    const limit = filesPerPage;
+    const skip = parseInt(page, 10) * 20;
+    const limit = 20;
     let searchQuery;
     if (!parentId) {
-      searchQuery = { userId: ObjectID(userId) };
+      searchQuery = { userId: redisUserId };
     } else {
       searchQuery = {
         parentId: ObjectID(parentId),
-        userId: ObjectID(userId),
+        userId: redisUserId,
       };
     }
     const aggregateArgs = [
@@ -133,7 +132,11 @@ const FilesController = {
     ];
     const allFiles = dbClient.db.collection('files');
     const files = await allFiles.aggregate(aggregateArgs).toArray();
-    res.status(200).json(files);
+    const mappedFiles = files.map(({ _id, ...remaining }) => ({
+      id: _id,
+      ...remaining,
+    }));
+    res.status(200).json(mappedFiles);
   },
 
   async putPublish(req, res) {
@@ -146,9 +149,8 @@ const FilesController = {
     }
     const { id } = req.params;
     const fileId = new ObjectID(id);
-    const userID = ObjectID(userId);
 
-    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userID });
+    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userId });
     if (!file) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -168,9 +170,8 @@ const FilesController = {
 
     const { id } = req.params;
     const fileId = new ObjectID(id);
-    const userID = new ObjectID(userId);
 
-    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userID });
+    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userId });
     if (!file) {
       res.status(404).json({ error: 'Not found' });
       return;
