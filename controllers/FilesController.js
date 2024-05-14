@@ -1,6 +1,7 @@
 const { ObjectID } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const mime = require('mime-types');
 const dbClient = require('../utils/db');
 const redisClient = require('../utils/redis');
 
@@ -150,7 +151,7 @@ const FilesController = {
     const { id } = req.params;
     const fileId = new ObjectID(id);
 
-    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userId });
+    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId });
     if (!file) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -171,7 +172,7 @@ const FilesController = {
     const { id } = req.params;
     const fileId = new ObjectID(id);
 
-    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userId });
+    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId });
     if (!file) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -179,6 +180,54 @@ const FilesController = {
     file.isPublic = false;
 
     res.status(200).json(file);
+  },
+
+  async getFile(req, res) {
+    const { id } = req.params;
+    const { size } = req.query;
+    const allFiles = dbClient.db.collection('files');
+    const fileID = new ObjectID(id);
+    const file = await allFiles.findOne({ _id: fileID });
+    if (!file) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+
+    if (
+      !file.isPublic
+      && (!userId || file.userId !== userId)
+    ) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    if (file.type === 'folder') {
+      res.status(400).json({ error: "A folder doesn't have content" });
+      return;
+    }
+    let filename = file.localPath;
+    if (size) {
+      const validSizes = ['500', '250', '100'];
+      if (!validSizes.includes(size)) {
+        res.status(400).json({ error: 'Invalid size' });
+        return;
+      }
+      filename = `${file.localPath}_${size}`;
+    }
+
+    fs.stat(file.localPath, (err) => {
+      if (err) {
+        res.status(404).json({ error: 'Not found' });
+      }
+    });
+
+    const mimeType = mime.lookup(file.name);
+    res.setHeader('Content-Type', mimeType);
+    const fileContent = await fs.promises.readFile(filename);
+    res.status(200).send(fileContent);
   },
 };
 
