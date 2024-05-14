@@ -2,8 +2,11 @@ const { ObjectID } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const mime = require('mime-types');
+const Bull = require('bull');
 const dbClient = require('../utils/db');
 const redisClient = require('../utils/redis');
+
+const fileQueue = new Bull('fileQueue');
 
 const FilesController = {
   async postUpload(req, res) {
@@ -84,6 +87,9 @@ const FilesController = {
         isPublic,
         parentId,
       });
+      if (type === 'image') {
+        await fileQueue.add({ userId, fileId: _id });
+      }
     }
   },
 
@@ -97,13 +103,16 @@ const FilesController = {
     }
     const { id } = req.params;
     const fileId = new ObjectID(id);
-    const userID = new ObjectID(userId);
-    const files = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userID });
+    const files = await dbClient.db.collection('files').findOne({ _id: fileId, userId });
     if (!files) {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    res.status(200).json(files);
+    const mappedFiles = files.map(({ _id, ...remaining }) => ({
+      id: _id,
+      ...remaining,
+    }));
+    res.status(200).json(mappedFiles);
   },
 
   async getIndex(req, res) {
@@ -156,6 +165,7 @@ const FilesController = {
       res.status(404).json({ error: 'Not found' });
       return;
     }
+    await dbClient.db.collection('files').updateOne({ _id: fileId }, { $set: { isPublic: true } });
     file.isPublic = true;
     res.status(200).json(file);
   },
@@ -177,6 +187,7 @@ const FilesController = {
       res.status(404).json({ error: 'Not found' });
       return;
     }
+    await dbClient.db.collection('files').updateOne({ _id: fileId }, { $set: { isPublic: false } });
     file.isPublic = false;
 
     res.status(200).json(file);
