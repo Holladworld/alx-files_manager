@@ -136,7 +136,6 @@ const FilesController = {
     res.status(200).json(files);
   },
 
-
   async putPublish(req, res) {
     const token = req.header('X-Token');
     const key = `auth_${token}`;
@@ -149,7 +148,7 @@ const FilesController = {
     const fileId = new ObjectID(id);
     const userID = ObjectID(userId);
 
-    const file = await dbclient.db.collection('files').findOne({ _id: fileId, userId: userID });
+    const file = await dbClient.db.collection('files').findOne({ _id: fileId, userId: userID });
     if (!file) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -182,6 +181,5 @@ const FilesController = {
     res.status(200).json(file);
   },
 };
-
 
 module.exports = FilesController;
