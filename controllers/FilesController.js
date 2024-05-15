@@ -108,11 +108,7 @@ const FilesController = {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    const mappedFiles = files.map(({ _id, ...remaining }) => ({
-      id: _id,
-      ...remaining,
-    }));
-    res.status(200).json(mappedFiles);
+    res.status(200).json(files);
   },
 
   async getIndex(req, res) {
@@ -142,11 +138,7 @@ const FilesController = {
     ];
     const allFiles = dbClient.db.collection('files');
     const files = await allFiles.aggregate(aggregateArgs).toArray();
-    const mappedFiles = files.map(({ _id, ...remaining }) => ({
-      id: _id,
-      ...remaining,
-    }));
-    res.status(200).json(mappedFiles);
+    res.status(200).json(files);
   },
 
   async putPublish(req, res) {
